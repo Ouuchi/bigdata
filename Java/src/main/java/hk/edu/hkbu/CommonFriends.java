@@ -152,6 +152,7 @@ public class CommonFriends {
                 String user = entry.getKey();
 
                 long startRunningTime = System.currentTimeMillis();
+
                 JavaRDD<String> existingFriends = userPairsRDD
                         .filter(entry2 -> entry2._1.equals(user))
                         .map((entry3) -> entry3._2).distinct();
@@ -161,12 +162,12 @@ public class CommonFriends {
                 List<String> recommendedFriends = commonFriends
                         .filter(pair -> pair._1()._1().equals(user))
                         .flatMap(pair -> pair._2().iterator())
+                        .subtract(existingFriends)
                         .mapToPair(friend -> new Tuple2<>(friend, 1))
                         .reduceByKey((count1, count2) -> count1 + count2)
                         .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()))
                         .sortByKey(false)
                         .values()
-                        .subtract(existingFriends)
                         .take(Integer.parseInt(config.get("recommend_k")));
                 long endRunningTime = System.currentTimeMillis();
                 totalRunningTime = totalRunningTime +  (endRunningTime - startRunningTime);
@@ -206,41 +207,47 @@ public class CommonFriends {
                 userCount++;
             }
 
-            double recall = (double) correctPredict / testTotal * 100;
-            double precision = (double) correctPredict / predTotal * 100;
+            double precision = 0;
+            double recall = 0;
+            if (predTotal != 0)
+                precision = (double) correctPredict / predTotal * 100;
+
+            if (testTotal != 0)
+                recall = (double) correctPredict / testTotal * 100;
 
             System.out.println("Evaluation: "
-                    + " testTotal: "
                     + testTotal
-                    + " predTotal: "
+                    + ", predTotal: "
                     + predTotal
-                    + " correctPredict: "
+                    + ", correctPredict: "
                     + correctPredict
-                    + " precisions(%): "
+                    + ", precisions: "
                     + precision
-                    + " recalls(%): "
-                    + recall);
+                    + "%, recalls: "
+                    + recall
+                    + "%");
 
-            writer.println("## Evaluation: "
+            writer.println("## Evaluation:"
                     + " testTotal: "
                     + testTotal
-                    + " predTotal: "
+                    + ", predTotal: "
                     + predTotal
-                    + " correctPredict: "
+                    + ", correctPredict: "
                     + correctPredict
-                    + " precisions(%): "
+                    + ", precisions: "
                     + precision
-                    + " recalls(%): "
-                    + recall);
+                    + "%, recalls: "
+                    + recall
+                    + "%");
 
             endTime = System.currentTimeMillis();
             executionTime = endTime - startTime;
             long averageRunningTime = totalRunningTime / userCount;
 
-            System.out.println("The average running times for each target user : " + (double) averageRunningTime / 1000  + " seconds.");
-            System.out.println("The whole program's execution time: " + (double) executionTime/1000  + " seconds.");
+            System.out.println("The average running times for each target user : " + (double) averageRunningTime / 1000 + " seconds.");
+            System.out.println("The whole program's execution time: " + (double) executionTime / 1000 + " seconds.");
             writer.println("## The average running times for each target user : " + (double) averageRunningTime / 1000 + " seconds.");
-            writer.println("## The whole program's execution time: " + (double) executionTime/1000 + " seconds.");
+            writer.println("## The whole program's execution time: " + (double) executionTime / 1000 + " seconds.");
 
             writer.flush();
             writer.close();

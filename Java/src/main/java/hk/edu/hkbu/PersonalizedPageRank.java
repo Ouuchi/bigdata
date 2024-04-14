@@ -116,32 +116,37 @@ final class PersonalizedPageRank {
                 userCount++;
             }
 
-            double recall = (double) correctPredict / testTotal * 100;
-            double precision = (double) correctPredict / predTotal * 100;
+            double precision = 0;
+            double recall = 0;
+            if (predTotal != 0)
+                precision = (double) correctPredict / predTotal * 100;
+
+            if (testTotal != 0)
+                recall = (double) correctPredict / testTotal * 100;
 
             System.out.println("Evaluation: "
-                    + " testTotal: "
                     + testTotal
-                    + " predTotal: "
+                    + ", predTotal: "
                     + predTotal
-                    + " correctPredict: "
+                    + ", correctPredict: "
                     + correctPredict
-                    + " precisions(%): "
+                    + ", precisions: "
                     + precision
-                    + " recalls(%): "
-                    + recall);
+                    + "%, recalls: "
+                    + recall
+                    + "%");
 
             writer.println("## Evaluation: "
-                    + " testTotal: "
                     + testTotal
-                    + " predTotal: "
+                    + ", predTotal: "
                     + predTotal
-                    + " correctPredict: "
+                    + ", correctPredict: "
                     + correctPredict
-                    + " precisions(%): "
+                    + ", precisions: "
                     + precision
-                    + " recalls(%): "
-                    + recall);
+                    + "%, recalls: "
+                    + recall
+                    + "%");
 
             long endTime = System.currentTimeMillis();
             long executionTime = endTime - startTime;
