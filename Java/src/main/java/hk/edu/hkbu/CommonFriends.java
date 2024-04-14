@@ -170,8 +170,8 @@ public class CommonFriends {
                 userCount++;
             }
 
-            double recall = (double) correctPredict / testTotal;
-            double precision = (double) correctPredict / predTotal;
+            double recall = (double) correctPredict / testTotal * 100;
+            double precision = (double) correctPredict / predTotal * 100;
 
             System.out.println("Evaluation: "
                     + " testTotal: "
@@ -180,11 +180,10 @@ public class CommonFriends {
                     + predTotal
                     + " correctPredict: "
                     + correctPredict
-                    + " precisions: "
+                    + " precisions(%): "
                     + precision
-                    + " recall: "
+                    + " recalls(%): "
                     + recall);
-
 
             writer.println("## Evaluation: "
                     + " testTotal: "
@@ -193,19 +192,19 @@ public class CommonFriends {
                     + predTotal
                     + " correctPredict: "
                     + correctPredict
-                    + " precisions: "
+                    + " precisions(%): "
                     + precision
-                    + " recall: "
+                    + " recalls(%): "
                     + recall);
 
             endTime = System.currentTimeMillis();
             executionTime = endTime - startTime;
             long averageRunningTime = totalRunningTime / userCount;
 
-            System.out.println("The average running times for each target user : " + averageRunningTime + " milliseconds.");
-            System.out.println("The whole program's execution time: " + executionTime + " milliseconds.");
-            writer.println("## The average running times for each target user : " + averageRunningTime + " milliseconds.");
-            writer.println("## The whole program's execution time: " + executionTime + " milliseconds.");
+            System.out.println("The average running times for each target user : " + (double) averageRunningTime / 1000  + " seconds.");
+            System.out.println("The whole program's execution time: " + (double) executionTime/1000  + " seconds.");
+            writer.println("## The average running times for each target user : " + (double) averageRunningTime / 1000 + " seconds.");
+            writer.println("## The whole program's execution time: " + (double) executionTime/1000 + " seconds.");
 
             writer.flush();
             writer.close();
