@@ -78,7 +78,7 @@ final class PersonalizedPageRank {
                 /**
                  * Get sorted common friends.
                  */
-                List<String> recommendedFriends = getRecommendationFriends(user, links);
+                List<String> recommendedFriends = calculatePPRFriends(user, links);
 
                 writer.print(user);
                 System.out.print(user +  " recommendation friends ->");
@@ -148,7 +148,7 @@ final class PersonalizedPageRank {
      * @return
      */
 
-    private static List<String> getRecommendationFriends(String user, JavaPairRDD<String, Iterable<String>> links) {
+    private static List<String> calculatePPRFriends(String user, JavaPairRDD<String, Iterable<String>> links) {
 
         /**
          * Initialize page rank.
@@ -167,20 +167,16 @@ final class PersonalizedPageRank {
          * iteration
          */
         for (int current = 0; current < numIterations; current++) {
-
             // Calculates URL contributions to the rank of other URLs.
             contribs = links
                     .join(ranks)
                     .flatMapToPair(s -> {
                         List<Tuple2<String, Double>> results = new ArrayList<>();
-
                         int urlCount = Iterables.size(s._2._1);
-
                         for (String str: s._2._1) {
                             results.add(new Tuple2<>(str, s._2()._2 / urlCount * (1 - alpha)));
                         }
                         results.add(new Tuple2<>(s._1, alpha * s._2._2));
-
                         return results.iterator();
                     });
 

@@ -48,28 +48,22 @@ public class CommonFriends {
          */
         JavaPairRDD<Tuple2<String, String>, Iterable<String>> commonFriends = userFriends
             .flatMapToPair(pair -> {
-
                 List<Tuple2<Tuple2<String, String>, Iterable<String>>> result = new ArrayList<>();
                 String user20 = pair._1();
                 Iterable<String> userFriends2 = pair._2();
                 Set<String> commonFrields = new HashSet<>();
-
                 for (String friend : userFriends2) {
-
                     for (String friend2 : userFriends2) {
                         if (!friend.equals(friend2)) {
                             Tuple2<String, String> friendPair = new Tuple2<>(friend, friend2);
                             commonFrields.add(user20);
                             result.add(new Tuple2<>(friendPair, commonFrields));
-
                             friendPair = new Tuple2<>(friend2, friend);
                             result.add(new Tuple2<>(friendPair, commonFrields));
                         }
                     }
-
                     Tuple2<String, String> friendPair = new Tuple2<>(user20, friend);
                     result.add(new Tuple2<>(friendPair, new HashSet<>()));
-
                     friendPair = new Tuple2<>(friend, user20);
                     result.add(new Tuple2<>(friendPair, new HashSet<>()));
                 }
