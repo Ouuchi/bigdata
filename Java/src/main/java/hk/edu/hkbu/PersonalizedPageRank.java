@@ -11,9 +11,7 @@ import java.io.*;
 import java.util.*;
 
 final class PersonalizedPageRank {
-
     private static Map<String, String> config = readConfiguration("config.ini");
-
     private static double alpha = Double.parseDouble(config.get("alpha"));
     private static int numIterations = Integer.parseInt(config.get("numIterations"));
 
@@ -26,10 +24,9 @@ final class PersonalizedPageRank {
                 .setMaster("local")
                 .setAppName("CommonNeighborsRecommendation")
                 .set("spark.executor.memory","2g");
-
         JavaSparkContext sparkContext = new JavaSparkContext(conf);
 
-        JavaRDD<String> dataset = sparkContext.textFile(config.get("training_data_path"));
+        JavaRDD<String> dataset = sparkContext.textFile(config.get("training_data_file"));
 
         JavaRDD<String[]> userPairs = dataset.map(line -> line.split(" "));
 
@@ -42,19 +39,23 @@ final class PersonalizedPageRank {
         JavaPairRDD<String, Iterable<String>> links = userPairsRDD.groupByKey();
 
         try {
-
-            PrintWriter writer = new PrintWriter(new FileWriter(config.get("ppr_result_output_path")));
+            String filePath = config.get("result_output_path") + "ppr_result_" + config.get("recommend_k") + ".txt";
+            PrintWriter writer = new PrintWriter(new FileWriter(filePath));
 
             /**
              * Read the test file.
              */
-
-            int totalCompare = 0;
+            int testTotal = 0;
+            int predTotal = 0;
             int correctPredict = 0;
 
+            long totalRunningTime = 0;
+            int userCount = 0;
 
-            // Read the facebook test file.
-            JavaRDD<String> faceBookTestRDD = sparkContext.textFile(config.get("testing_data_path"));
+            /**
+             * Read the facebook test file.
+             */
+            JavaRDD<String> faceBookTestRDD = sparkContext.textFile(config.get("testing_data_file"));
             JavaRDD<String[]> faceBookTestRDDColumns = faceBookTestRDD.map(line -> line.split(" "));
             Map<String, Set<String>> testFriends = new HashMap<>();
 
@@ -72,26 +73,27 @@ final class PersonalizedPageRank {
 
                 String user = entry.getKey();
 
-//                List<String> userList = userPairsRDD.lookup(user);
-//                Set<String> userSet = new HashSet<>(userList);
-
                 /**
                  * Get sorted common friends.
                  */
+                long startRunningTime = System.currentTimeMillis();
                 List<String> recommendedFriends = calculatePPRFriends(user, links);
+                long endRunningTime = System.currentTimeMillis();
+                totalRunningTime = totalRunningTime +  (endRunningTime - startRunningTime);
 
                 writer.print(user);
                 System.out.print(user +  " recommendation friends ->");
                 int size = recommendedFriends.size();
+                predTotal+= size;
 
                 if (size == 0) {
-                    writer.println("\n");
+                    writer.println();
                     System.out.println("");
                     continue;
                 }
 
                 for (int j = 0; j < size; j++) {
-                    totalCompare++;
+                    testTotal++;
 
                     // Compare the actual output recommended friends to the friends in test file.
                     if (testFriends.containsKey(recommendedFriends.get(j))) {
@@ -104,32 +106,48 @@ final class PersonalizedPageRank {
                         writer.print(" " + recommendedFriends.get(j));
                     } else {
                         System.out.println(" " + recommendedFriends.get(j));
-                        writer.println(" " + recommendedFriends.get(j) + "\n");
+                        writer.println(" " + recommendedFriends.get(j));
                     }
                 }
 
                 writer.flush();
+                userCount++;
             }
 
-            System.out.println("Total record: "
-                    + totalCompare
-                    + " Correct predict: "
-                    + correctPredict
-                    + " correct ratio: "
-                    + (correctPredict / totalCompare));
+            double recall = (double) correctPredict / testTotal;
+            double precision = (double) correctPredict / predTotal;
 
-            writer.println("Total record: "
-                    + totalCompare
-                    + " Correct predict: "
+            System.out.println("Evaluation: "
+                    + " testTotal: "
+                    + testTotal
+                    + " predTotal: "
+                    + predTotal
+                    + " correctPredict: "
                     + correctPredict
-                    + " correct ratio: "
-                    + (correctPredict / totalCompare));
+                    + " precisions: "
+                    + precision
+                    + " recall: "
+                    + recall);
+
+            writer.println("## Evaluation: "
+                    + " testTotal: "
+                    + testTotal
+                    + " predTotal: "
+                    + predTotal
+                    + " correctPredict: "
+                    + correctPredict
+                    + " precisions: "
+                    + precision
+                    + " recall: "
+                    + recall);
 
             long endTime = System.currentTimeMillis();
             long executionTime = endTime - startTime;
-
+            long averageRunningTime = totalRunningTime / userCount;
+            System.out.println("The average running times for each target user : " + averageRunningTime + " milliseconds.");
             System.out.println("The whole program's execution time: " + executionTime + " milliseconds.");
-            writer.println("The whole program's execution time: " + executionTime + " milliseconds.");
+            writer.println("## The average running times for each target user : " + averageRunningTime + " milliseconds.");
+            writer.println("## The whole program's execution time: " + executionTime + " milliseconds.");
 
             writer.flush();
             writer.close();
@@ -142,12 +160,11 @@ final class PersonalizedPageRank {
     }
 
     /**
-     * Get Recommendation Friends.
+     *
      * @param user
      * @param links
      * @return
      */
-
     private static List<String> calculatePPRFriends(String user, JavaPairRDD<String, Iterable<String>> links) {
 
         /**

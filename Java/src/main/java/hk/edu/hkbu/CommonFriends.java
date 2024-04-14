@@ -31,7 +31,7 @@ public class CommonFriends {
          * Read the file and convert it to a user pair RDD.
          */
         JavaPairRDD userPairsRDD = sparkContext
-                .textFile(config.get("training_data_path"))
+                .textFile(config.get("training_data_file"))
                 .map(line -> line.split(" "))
                 .flatMapToPair(pair -> {
                     List<Tuple2<String, String>> pairs = new ArrayList<>();
@@ -84,23 +84,25 @@ public class CommonFriends {
         commonFriends.cache();
         try {
 
-            PrintWriter writer = new PrintWriter(new FileWriter(config.get("common_friends_result_output_path")));
+            String filePath = config.get("result_output_path") + "common_result_" + config.get("recommend_k") + ".txt";
+            PrintWriter writer = new PrintWriter(new FileWriter(filePath));
 
-            long endTime = System.currentTimeMillis();
-            long executionTime = endTime - startTime;
-            String execution_time = "Execution time of finding common friends: " + executionTime + " milliseconds.";
-            System.out.println(execution_time);
+            long endTime;
+            long executionTime;
 
             /**
              * Read the test file.
              */
 
-            int totalCompare = 0;
+            int testTotal = 0;
+            int predTotal = 0;
             int correctPredict = 0;
+            long totalRunningTime = 0;
+            int userCount = 0;
 
 
             // Read the facebook test file.
-            JavaRDD<String> faceBookTestRDD = sparkContext.textFile(config.get("testing_data_path"));
+            JavaRDD<String> faceBookTestRDD = sparkContext.textFile(config.get("testing_data_file"));
             JavaRDD<String[]> faceBookTestRDDColumns = faceBookTestRDD.map(line -> line.split(" "));
             Map<String, Set<String>> testFriends = new HashMap<>();
 
@@ -115,12 +117,8 @@ public class CommonFriends {
 
             // Output file
             for (Map.Entry<String, Set<String>> entry : testFriends.entrySet()) {
-
                 String user = entry.getKey();
-
-//                List<String> userList = userPairsRDD.lookup(user);
-//                Set<String> userSet = new HashSet<>(userList);
-
+                long startRunningTime = System.currentTimeMillis();
                 /**
                  * Get sorted common friends.
                  */
@@ -133,10 +131,13 @@ public class CommonFriends {
                         .sortByKey(false)
                         .values()
                         .take(Integer.parseInt(config.get("recommend_k")));
+                long endRunningTime = System.currentTimeMillis();
+                totalRunningTime = totalRunningTime +  (endRunningTime - startRunningTime);
 
                 writer.print(user);
                 System.out.print(user +  " recommendation friends ->");
                 int size = recommendedFriends.size();
+                predTotal += size;
 
                 if (size == 0) {
                     writer.println("\n");
@@ -145,7 +146,7 @@ public class CommonFriends {
                 }
 
                 for (int j = 0; j < size; j++) {
-                    totalCompare++;
+                    testTotal++;
 
                     // Compare the actual output recommended friends to the friends in test file.
                     if (testFriends.containsKey(recommendedFriends.get(j))) {
@@ -158,33 +159,50 @@ public class CommonFriends {
                         writer.print(" " + recommendedFriends.get(j));
                     } else {
                         System.out.println(" " + recommendedFriends.get(j));
-                        writer.println(" " + recommendedFriends.get(j) + "\n");
+                        writer.println(" " + recommendedFriends.get(j));
                     }
                 }
 
                 writer.flush();
+                userCount++;
             }
 
-            System.out.println("Total record: "
-                    + totalCompare
-                    + " Correct predict: "
-                    + correctPredict
-                    + " correct ratio: "
-                    + (correctPredict / totalCompare));
+            double recall = (double) correctPredict / testTotal;
+            double precision = (double) correctPredict / predTotal;
 
-            writer.println("Total record: "
-                    + totalCompare
-                    + " Correct predict: "
+            System.out.println("Evaluation: "
+                    + " testTotal: "
+                    + testTotal
+                    + " predTotal: "
+                    + predTotal
+                    + " correctPredict: "
                     + correctPredict
-                    + " correct ratio: "
-                    + (correctPredict / totalCompare));
+                    + " precisions: "
+                    + precision
+                    + " recall: "
+                    + recall);
+
+
+            writer.println("## Evaluation: "
+                    + " testTotal: "
+                    + testTotal
+                    + " predTotal: "
+                    + predTotal
+                    + " correctPredict: "
+                    + correctPredict
+                    + " precisions: "
+                    + precision
+                    + " recall: "
+                    + recall);
 
             endTime = System.currentTimeMillis();
             executionTime = endTime - startTime;
+            long averageRunningTime = totalRunningTime / userCount;
 
-            writer.println(execution_time);
+            System.out.println("The average running times for each target user : " + averageRunningTime + " milliseconds.");
             System.out.println("The whole program's execution time: " + executionTime + " milliseconds.");
-            writer.println("The whole program's execution time: " + executionTime + " milliseconds.");
+            writer.println("## The average running times for each target user : " + averageRunningTime + " milliseconds.");
+            writer.println("## The whole program's execution time: " + executionTime + " milliseconds.");
 
             writer.flush();
             writer.close();
