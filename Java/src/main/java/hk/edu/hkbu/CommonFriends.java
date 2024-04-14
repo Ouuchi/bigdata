@@ -49,38 +49,35 @@ public class CommonFriends {
          * Calculate common friends RDD.
          */
         JavaPairRDD<Tuple2<String, String>, Iterable<String>> commonFriends = userFriends
-            .flatMapToPair(pair -> {
-                List<Tuple2<Tuple2<String, String>, Iterable<String>>> result = new ArrayList<>();
-                String tmpUser = pair._1();
+                .flatMapToPair(pair -> {
+                    List<Tuple2<Tuple2<String, String>, Iterable<String>>> result = new ArrayList<>();
+                    String tmpUser = pair._1();
 
-                Iterable<String> userFriends2 = pair._2();
-                Set<String> commonFrields = new HashSet<>();
-                commonFrields.add(tmpUser);
+                    Iterable<String> userFriends2 = pair._2();
+                    Set<String> commonFrields = new HashSet<>();
+                    commonFrields.add(tmpUser);
 
-                for (String friend : userFriends2) {
-                    for (String friend2 : userFriends2) {
-                        if (!friend.equals(friend2)) {
-                            Tuple2<String, String> friendPair = new Tuple2<>(friend, friend2);
-                            result.add(new Tuple2<>(friendPair, commonFrields));
-                            friendPair = new Tuple2<>(friend2, friend);
-                            result.add(new Tuple2<>(friendPair, commonFrields));
+                    for (String friend : userFriends2) {
+                        for (String friend2 : userFriends2) {
+                            if (!friend.equals(friend2)) {
+                                Tuple2<String, String> friendPair = new Tuple2<>(friend, friend2);
+                                result.add(new Tuple2<>(friendPair, commonFrields));
+                                friendPair = new Tuple2<>(friend2, friend);
+                                result.add(new Tuple2<>(friendPair, commonFrields));
+                            }
                         }
                     }
-                }
-                return result.iterator();
-            }).reduceByKey((friends1, friends2) -> {
-
-                Set<String> common = new HashSet<>();
-                friends1.forEach(e -> {
-                    common.add(e);
+                    return result.iterator();
+                }).reduceByKey((friends1, friends2) -> {
+                    Set<String> common = new HashSet<>();
+                    friends1.forEach(e -> {
+                        common.add(e);
+                    });
+                    friends2.forEach(e2 -> {
+                        common.add(e2);
+                    });
+                    return common;
                 });
-
-                friends2.forEach(e2 -> {
-                    common.add(e2);
-                });
-
-                return common;
-            });
         commonFriends.cache();
 
 //        List<Tuple2<Tuple2<String, String>, Iterable<String>>> list1 = commonFriends.collect();
@@ -169,6 +166,7 @@ public class CommonFriends {
                         .sortByKey(false)
                         .values()
                         .take(Integer.parseInt(config.get("recommend_k")));
+
                 long endRunningTime = System.currentTimeMillis();
                 totalRunningTime = totalRunningTime +  (endRunningTime - startRunningTime);
 
