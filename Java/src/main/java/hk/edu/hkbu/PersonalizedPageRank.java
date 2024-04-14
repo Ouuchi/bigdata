@@ -22,8 +22,8 @@ final class PersonalizedPageRank {
 
         SparkConf conf = new SparkConf()
                 .setMaster("local")
-                .setAppName("CommonNeighborsRecommendation")
-                .set("spark.executor.memory","2g");
+                .setAppName("PersonalizedPageRank")
+                .set("spark.executor.memory","4g");
         JavaSparkContext sparkContext = new JavaSparkContext(conf);
 
         JavaRDD<String> dataset = sparkContext.textFile(config.get("training_data_file"));
@@ -168,6 +168,18 @@ final class PersonalizedPageRank {
      * @return
      */
     private static List<String> calculatePPRFriends(String user, JavaPairRDD<String, Iterable<String>> links) {
+
+//
+//        JavaRDD<String> existingFriends = links
+//                .filter(entry -> entry._1.equals(user))
+//                .values()
+//                .flatMap(entry -> {
+//                    Set<String> list = new HashSet<>();
+//                    for (String str: entry) {
+//                        list.add(str);
+//                    }
+//                    return list.iterator();
+//                });
 
         /**
          * Initialize page rank.

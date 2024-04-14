@@ -22,23 +22,24 @@ public class CommonFriends {
 
         SparkConf conf = new SparkConf()
                 .setMaster("local")
-                .setAppName("CommonNeighborsRecommendation")
-                .set("spark.executor.memory","4g");
+                .setAppName("CommonFriends")
+                .set("spark.executor.memory","8g");
 
         JavaSparkContext sparkContext = new JavaSparkContext(conf);
 
         /**
          * Read the file and convert it to a user pair RDD.
          */
-        JavaPairRDD userPairsRDD = sparkContext
+        JavaPairRDD<String, String> userPairsRDD = sparkContext
                 .textFile(config.get("training_data_file"))
                 .map(line -> line.split(" "))
                 .flatMapToPair(pair -> {
                     List<Tuple2<String, String>> pairs = new ArrayList<>();
                     pairs.add(new Tuple2<>(pair[0], pair[1]));
-                    pairs.add(new Tuple2<>(pair[1], pair[0]));
                     return pairs.iterator();
                 });
+        userPairsRDD.cache();
+
         /**
          * Group by key.
          */
@@ -80,31 +81,37 @@ public class CommonFriends {
 
                 return common;
             });
-
-        JavaPairRDD<Tuple2<String, String>, Iterable<String>> existingsFriends = userFriends
-                 .flatMapToPair(pair -> {
-
-                     List<Tuple2<Tuple2<String, String>, Iterable<String>>> result = new ArrayList<>();
-                     String tmpUser = pair._1();
-                     Iterable<String> userFriends2 = pair._2();
-                     Set<String> commonFrields = new HashSet<>();
-                     commonFrields.add(tmpUser);
-                     for (String friend : userFriends2) {
-                         Tuple2<String, String> friendPair = new Tuple2<>(friend, tmpUser);
-                         result.add(new Tuple2<>(friendPair, commonFrields));
-                         friendPair = new Tuple2<>(tmpUser, friend);
-                         result.add(new Tuple2<>(friendPair, commonFrields));
-                     }
-                     return result.iterator();
-                 }).reduceByKey((friends1, friends2) -> {
-                    Set<String> common = new HashSet<>();
-                    return common;
-                });
-
-        JavaPairRDD<Tuple2<String, String>, Iterable<String>> commonFriends2
-                = commonFriends.subtractByKey(existingsFriends);
-
         commonFriends.cache();
+
+//        List<Tuple2<Tuple2<String, String>, Iterable<String>>> list1 = commonFriends.collect();
+//
+//        JavaPairRDD<Tuple2<String, String>, Iterable<String>> existingsFriends = userFriends
+//                 .flatMapToPair(pair -> {
+//                     List<Tuple2<Tuple2<String, String>, Iterable<String>>> result = new ArrayList<>();
+//                     String tmpUser = pair._1();
+//                     Iterable<String> userFriends2 = pair._2();
+//                     Set<String> commonFrields = new HashSet<>();
+//                     for (String friend : userFriends2) {
+//                         Tuple2<String, String> friendPair = new Tuple2<>(friend, tmpUser);
+//                         result.add(new Tuple2<>(friendPair, commonFrields));
+//                         friendPair = new Tuple2<>(tmpUser, friend);
+//                         result.add(new Tuple2<>(friendPair, commonFrields));
+//                     }
+//                     return result.iterator();
+//                 }).reduceByKey((friends1, friends2) -> {
+//                    Set<String> common = new HashSet<>();
+//                    return common;
+//                });
+//
+//        List<Tuple2<Tuple2<String, String>, Iterable<String>>> list2 = existingsFriends.collect();
+//
+//        JavaPairRDD<Tuple2<String, String>, Iterable<String>> commonFriends2
+//                = commonFriends.subtractByKey(existingsFriends);
+//
+//        commonFriends2.cache();
+//
+//        List<Tuple2<Tuple2<String, String>, Iterable<String>>> list3 = commonFriends2.collect();
+
         try {
 
             String filePath = config.get("result_output_path") + "cf_result_" + config.get("recommend_k") + ".txt";
@@ -141,19 +148,25 @@ public class CommonFriends {
 
             // Output file
             for (Map.Entry<String, Set<String>> entry : testFriends.entrySet()) {
+
                 String user = entry.getKey();
+
                 long startRunningTime = System.currentTimeMillis();
+                JavaRDD<String> existingFriends = userPairsRDD
+                        .filter(entry2 -> entry2._1.equals(user))
+                        .map((entry3) -> entry3._2).distinct();
                 /**
                  * Get sorted common friends.
                  */
-                List<String> recommendedFriends = commonFriends2
-                        .filter(pair -> pair._1()._1().equals(user) || pair._1()._2().equals(user))
+                List<String> recommendedFriends = commonFriends
+                        .filter(pair -> pair._1()._1().equals(user))
                         .flatMap(pair -> pair._2().iterator())
                         .mapToPair(friend -> new Tuple2<>(friend, 1))
                         .reduceByKey((count1, count2) -> count1 + count2)
                         .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()))
                         .sortByKey(false)
                         .values()
+                        .subtract(existingFriends)
                         .take(Integer.parseInt(config.get("recommend_k")));
                 long endRunningTime = System.currentTimeMillis();
                 totalRunningTime = totalRunningTime +  (endRunningTime - startRunningTime);
