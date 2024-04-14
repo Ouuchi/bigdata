@@ -36,6 +36,7 @@ public class CommonFriends {
                 .flatMapToPair(pair -> {
                     List<Tuple2<String, String>> pairs = new ArrayList<>();
                     pairs.add(new Tuple2<>(pair[0], pair[1]));
+                    pairs.add(new Tuple2<>(pair[1], pair[0]));
                     return pairs.iterator();
                 });
         /**
@@ -49,23 +50,21 @@ public class CommonFriends {
         JavaPairRDD<Tuple2<String, String>, Iterable<String>> commonFriends = userFriends
             .flatMapToPair(pair -> {
                 List<Tuple2<Tuple2<String, String>, Iterable<String>>> result = new ArrayList<>();
-                String user20 = pair._1();
+                String tmpUser = pair._1();
+
                 Iterable<String> userFriends2 = pair._2();
                 Set<String> commonFrields = new HashSet<>();
+                commonFrields.add(tmpUser);
+
                 for (String friend : userFriends2) {
                     for (String friend2 : userFriends2) {
                         if (!friend.equals(friend2)) {
                             Tuple2<String, String> friendPair = new Tuple2<>(friend, friend2);
-                            commonFrields.add(user20);
                             result.add(new Tuple2<>(friendPair, commonFrields));
                             friendPair = new Tuple2<>(friend2, friend);
                             result.add(new Tuple2<>(friendPair, commonFrields));
                         }
                     }
-                    Tuple2<String, String> friendPair = new Tuple2<>(user20, friend);
-                    result.add(new Tuple2<>(friendPair, new HashSet<>()));
-                    friendPair = new Tuple2<>(friend, user20);
-                    result.add(new Tuple2<>(friendPair, new HashSet<>()));
                 }
                 return result.iterator();
             }).reduceByKey((friends1, friends2) -> {
@@ -80,11 +79,35 @@ public class CommonFriends {
                 });
 
                 return common;
-            }).filter(pair3 -> pair3._2.iterator().hasNext());
+            });
+
+        JavaPairRDD<Tuple2<String, String>, Iterable<String>> existingsFriends = userFriends
+                 .flatMapToPair(pair -> {
+
+                     List<Tuple2<Tuple2<String, String>, Iterable<String>>> result = new ArrayList<>();
+                     String tmpUser = pair._1();
+                     Iterable<String> userFriends2 = pair._2();
+                     Set<String> commonFrields = new HashSet<>();
+                     commonFrields.add(tmpUser);
+                     for (String friend : userFriends2) {
+                         Tuple2<String, String> friendPair = new Tuple2<>(friend, tmpUser);
+                         result.add(new Tuple2<>(friendPair, commonFrields));
+                         friendPair = new Tuple2<>(tmpUser, friend);
+                         result.add(new Tuple2<>(friendPair, commonFrields));
+                     }
+                     return result.iterator();
+                 }).reduceByKey((friends1, friends2) -> {
+                    Set<String> common = new HashSet<>();
+                    return common;
+                });
+
+        JavaPairRDD<Tuple2<String, String>, Iterable<String>> commonFriends2
+                = commonFriends.subtractByKey(existingsFriends);
+
         commonFriends.cache();
         try {
 
-            String filePath = config.get("result_output_path") + "common_result_" + config.get("recommend_k") + ".txt";
+            String filePath = config.get("result_output_path") + "cf_result_" + config.get("recommend_k") + ".txt";
             PrintWriter writer = new PrintWriter(new FileWriter(filePath));
 
             long endTime;
@@ -123,7 +146,7 @@ public class CommonFriends {
                 /**
                  * Get sorted common friends.
                  */
-                List<String> recommendedFriends = commonFriends
+                List<String> recommendedFriends = commonFriends2
                         .filter(pair -> pair._1()._1().equals(user) || pair._1()._2().equals(user))
                         .flatMap(pair -> pair._2().iterator())
                         .mapToPair(friend -> new Tuple2<>(friend, 1))
