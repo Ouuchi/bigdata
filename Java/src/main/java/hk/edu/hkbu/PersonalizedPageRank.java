@@ -64,9 +64,11 @@ final class PersonalizedPageRank {
                     testFriends.put(elements[0], new HashSet<>());
                 }
                 for (int i = 1; i < elements.length; i++) {
+                    testTotal++;
                     testFriends.get(elements[0]).add(elements[i]);
                 }
             }
+            Map<String, Set<String>> predictCorrectMap = new HashMap<>();
 
             // Output file
             for (Map.Entry<String, Set<String>> entry : testFriends.entrySet()) {
@@ -93,10 +95,10 @@ final class PersonalizedPageRank {
                 }
 
                 for (int j = 0; j < size; j++) {
-                    testTotal++;
 
                     // Compare the actual output recommended friends to the friends in test file.
-                    if (testFriends.containsKey(recommendedFriends.get(j))) {
+                    if (testFriends.get(user).contains(recommendedFriends.get(j))) {
+                        predictCorrectMap.put(user, testFriends.get(user));
                         correctPredict++;
                     }
 
